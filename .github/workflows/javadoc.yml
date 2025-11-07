@@ -1,46 +1,21 @@
-name: Publish Javadoc
+name: Deploy Javadoc
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:  # allows manual trigger from Actions tab
+  push:
+    branches:
+      - master
+      - main
 
 jobs:
-  javadoc:
+  publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # required for gh-pages deployment
-
+      contents: write  # if you have a protection rule on your repository, you'll need to give write permission to the workflow.
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Deploy JavaDoc 🚀
+        uses: MathieuSoysal/Javadoc-publisher.yml@v3.0.2
         with:
-          java-version: '8'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Build Javadoc
-        run: mvn -B clean javadoc:javadoc
-
-      - name: Prepare documentation for publishing
-        run: |
-          VERSION=${GITHUB_REF##*/}
-          echo "Detected version: $VERSION"
-          mkdir -p publish/$VERSION
-          cp -r target/site/apidocs/* publish/$VERSION/
-          # Copy same content to /latest for easy reference
-          mkdir -p publish/latest
-          cp -r target/site/apidocs/* publish/latest/
-          # Add redirect from root
-          echo "<meta http-equiv='refresh' content='0; url=latest/index.html'>" > publish/index.html
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./publish
-          commit_message: "Publish Javadoc for ${{ github.event.release.tag_name }}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          javadoc-branch: javadoc
+          java-version: 8
+          project: maven
