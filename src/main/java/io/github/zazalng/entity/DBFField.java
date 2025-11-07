@@ -16,39 +16,43 @@
 
 package io.github.zazalng.entity;
 
-import io.github.zazalng.contracts.DBFDataType;
 import io.github.zazalng.utility.DBFUtils;
+import io.github.zazalng.contracts.DBFDataType;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 /**
  * Represents a single field (column) descriptor from the DBF file header.
- * This Java record holds the metadata required to interpret data stored in the records.
  *
- * @param name The name of the field (up to 10 characters).
- * @param type The {@link DBFDataType} of the field.
- * @param length The total length of the field data in bytes.
- * @param decimalCount The number of decimal places for Numeric and Float fields.
+ * <p>This final class holds the metadata required to interpret data stored in the records,
+ * including the field's name, data type, length, and decimal precision. This structure is
+ * compatible with older Java Development Kits (e.g., JDK 8).</p>
  *
  * @author Zazalng
  * @since 1.0.0
  * @see <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a>
  */
-public record DBFField(
-        String name,
-        DBFDataType type,
-        int length,
-        int decimalCount
-) {
+public final class DBFField{
+    private final String name;
+    private final DBFDataType type;
+    private final int length;
+    private final int decimalCount;
+
+    private DBFField(String name, DBFDataType type, int length, int decimalCount) {
+        this.name = name;
+        this.type = type;
+        this.length = length;
+        this.decimalCount = decimalCount;
+    }
 
     /**
      * Reads a single 32-byte field descriptor from the {@code ByteBuffer}.
-     * The buffer's position is advanced by 32 bytes.
+     * The buffer's position is advanced by 32 bytes to point to the next descriptor or the end-of-fields marker.
      *
      * @param buf The {@code ByteBuffer} containing the field descriptor data.
-     * @param charset The character set used to decode the field name.
-     * @return A new {@code DBFField} record instance.
+     * @param charset The character set used to decode the field name (e.g., {@link io.github.zazalng.contracts.DBFEncoding#toCharset()}).
+     * @return A new {@code DBFField} instance containing the parsed metadata.
      */
     public static DBFField read(ByteBuffer buf, Charset charset) {
         byte[] nameBytes = new byte[11];
@@ -68,26 +72,84 @@ public record DBFField(
      * Decodes the raw byte data for this field into an appropriate Java object based on the field's type.
      *
      * @param data The raw byte array containing the field data for a single record.
-     * @param charset The character set used for decoding text-based types.
-     * @return The decoded value as an {@code Object} (e.g., String, Date, Double, Integer, Boolean, or raw byte array for unhandled types). Returns {@code null} if the raw data is empty or invalid.
+     * @param charset The character set used for decoding text-based types (e.g., CHARACTER, NUMERIC, DATE).
+     * @return The decoded value as an {@code Object} (e.g., String, Date, Double, Integer, Boolean). Returns {@code null} if the raw data is empty, invalid, or cannot be parsed. Returns the raw byte array for unhandled types (MEMO, GENERAL, etc.).
      */
     public Object decode(byte[] data, Charset charset) {
         String raw = new String(data, charset).trim();
         if (raw.isEmpty()) return null;
 
-        return switch (type) {
-            case CHARACTER, VARCHAR -> raw;
-            case DATE -> DBFUtils.parseDate(raw);
-            case NUMERIC, FLOAT -> DBFUtils.parseNumeric(raw);
-            case DOUBLE, CURRENCY -> DBFUtils.parseDoubleBinary(data);
-            case INTEGER -> DBFUtils.parseIntBinary(data);
-            case LOGICAL -> switch (raw.toUpperCase()) {
-                case "T", "Y" -> true;
-                case "F", "N" -> false;
-                default -> null;
-            };
-            case DATETIME, TIMESTAMP -> DBFUtils.parseDateTime(data);
-            default -> data;
-        };
+        switch (type) {
+            case CHARACTER:
+            case VARCHAR:
+                return raw;
+
+            case DATE:
+                return DBFUtils.parseDate(raw);
+
+            case NUMERIC:
+            case FLOAT:
+                return DBFUtils.parseNumeric(raw);
+
+            case DOUBLE:
+            case CURRENCY:
+                return DBFUtils.parseDoubleBinary(data);
+
+            case INTEGER:
+                return DBFUtils.parseIntBinary(data);
+
+            case LOGICAL:
+                String val = raw.toUpperCase();
+                switch (val) {
+                    case "T":
+                    case "Y":
+                        return true;
+                    case "F":
+                    case "N":
+                        return false;
+                    default:
+                        return null;
+                }
+
+            case DATETIME:
+            case TIMESTAMP:
+                return DBFUtils.parseDateTime(data);
+
+            default:
+                return data;
+        }
+
+    }
+
+    /**
+     * Gets the name of the field (up to 10 characters).
+     * @return The field name.
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Gets the data type of the field.
+     * @return The {@link DBFDataType} enum constant.
+     */
+    public DBFDataType getType() {
+        return type;
+    }
+
+    /**
+     * Gets the total length of the field data in bytes.
+     * @return The field length.
+     */
+    public int getLength() {
+        return length;
+    }
+
+    /**
+     * Gets the number of decimal places for Numeric and Float fields.
+     * @return The decimal count.
+     */
+    public int getDecimalCount() {
+        return decimalCount;
     }
 }

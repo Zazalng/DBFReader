@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -128,7 +129,7 @@ public final class DBFHeader {
      * Gets an unmodifiable list of the {@link DBFField} descriptors parsed from the header.
      * @return An unmodifiable {@code List} of {@link DBFField} objects.
      */
-    public List<DBFField> fields() { return List.copyOf(fields); }
+    public List<DBFField> fields() { return Collections.unmodifiableList(fields); }
 
     /**
      * Reads all data records from the current position of the channel until the record count is reached.
@@ -157,6 +158,6 @@ public final class DBFHeader {
             }
         }
 
-        return List.copyOf(list);
+        return Collections.unmodifiableList(list);
     }
 }

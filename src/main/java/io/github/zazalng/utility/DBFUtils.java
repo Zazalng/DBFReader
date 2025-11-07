@@ -41,7 +41,7 @@ public final class DBFUtils {
      * @return The parsed {@code LocalDate}, or {@code null} if the string is invalid or empty.
      */
     public static LocalDate parseDate(String text) {
-        if (text == null || text.isBlank() || text.length() != 8) return null;
+        if (text == null || text.isEmpty() || text.length() != 8) return null;
         try {
             int y = Integer.parseInt(text.substring(0, 4));
             int m = Integer.parseInt(text.substring(4, 6));
@@ -73,7 +73,7 @@ public final class DBFUtils {
      */
     public static BigDecimal parseDoubleBinary(byte[] data) {
         if (data == null || data.length < 8) return null;
-        var buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
         return BigDecimal.valueOf(buf.getDouble());
     }
 
@@ -85,7 +85,7 @@ public final class DBFUtils {
      */
     public static Integer parseIntBinary(byte[] data) {
         if (data == null || data.length < 4) return null;
-        var buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
         return buf.getInt();
     }
 
@@ -100,7 +100,7 @@ public final class DBFUtils {
      */
     public static LocalDateTime parseDateTime(byte[] data) {
         if (data == null || data.length < 8) return null;
-        var buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
         try {
             int days = buf.getInt();
             int millis = buf.getInt();

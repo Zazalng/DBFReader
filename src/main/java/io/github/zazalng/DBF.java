@@ -22,6 +22,7 @@ import io.github.zazalng.entity.DBFHeader;
 import io.github.zazalng.entity.DBFRow;
 
 import java.io.IOException;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.*;
@@ -33,13 +34,13 @@ import java.util.*;
  * features like reading the header, field descriptors, and all data records as a snapshot.
  * It also supports up to 60 charsets possible for text encoding.</p>
  *
- * <h3>Key Features:</h3>
+ * <b>Key Features:</b>
  * <ul>
  * <li>Read header and field descriptors.</li>
  * <li>Read all records as a snapshot at construction and on {@link #reload()}.</li>
  * </ul>
  *
- * <h3>Limitations / Notes:</h3>
+ * <b>Limitations / Notes:</b>
  * <ul>
  * <li>Memo fields (.dbt/.fpt/.dbt-like memo) are not parsed here (placeholder).</li>
  * <li>Visual FoxPro-specific binary types, timestamps, and some Level 7 features are partially unsupported.</li>
@@ -53,7 +54,7 @@ import java.util.*;
 public class DBF {
     private final Path path;
     private DBFHeader header;
-    private List<DBFRow> records = List.of();
+    private List<DBFRow> records = new ArrayList<>();
 
     /**
      * Constructs a new DBF reader instance and immediately attempts to load the file data.
@@ -80,7 +81,7 @@ public class DBF {
      * @throws IOException If the file cannot be read.
      */
     private void load() throws IOException {
-        try (var channel = Files.newByteChannel(path)) {
+        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
             // Assume DBFHeader and readRecords handles the file channel
             header = new DBFHeader(channel);
             records = header.readRecords(channel);

@@ -101,7 +101,7 @@ public enum DBFDataType {
      * @return The matching {@code DBFDataType}, or {@code null} if the code is not recognized.
      */
     public static DBFDataType fromCode(char code) {
-        for (var v : values()) {
+        for (DBFDataType v : values()) {
             if (v.code == code) {
                 return v;
             }

@@ -43,10 +43,10 @@ public final class DBFRow {
     public DBFRow(List<DBFField> fields, ByteBuffer buffer, Charset charset) {
         buffer.position(1); // skip deletion flag (byte 0)
         for (DBFField f : fields) {
-            byte[] bytes = new byte[f.length()];
+            byte[] bytes = new byte[f.getLength()];
             buffer.get(bytes);
             Object val = f.decode(bytes, charset);
-            values.put(f.name(), val);
+            values.put(f.getName(), val);
         }
     }
 
@@ -60,6 +60,10 @@ public final class DBFRow {
         return values.get(name);
     }
 
+    /**
+     * Retrieves the Map Object of this row
+     * @return Row information as Map Object
+     */
     public Map<String, Object> getValues() {
         return values;
     }

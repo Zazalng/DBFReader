@@ -100,7 +100,7 @@ public enum DBFVersion {
     public static DBFVersion fromByte(byte b) {
         // Use unsigned integer comparison since some codes are above 127 (e.g., 0x83)
         int val = Byte.toUnsignedInt(b);
-        for (var v : values()) {
+        for (DBFVersion v : values()) {
             if (Byte.toUnsignedInt(v.code) == val) {
                 return v;
             }
