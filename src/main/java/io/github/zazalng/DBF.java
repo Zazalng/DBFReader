@@ -16,6 +16,7 @@
 
 package io.github.zazalng;
 
+import io.github.zazalng.contracts.DBFEncoding;
 import io.github.zazalng.contracts.DBFVersion;
 import io.github.zazalng.entity.DBFField;
 import io.github.zazalng.entity.DBFHeader;
@@ -48,7 +49,7 @@ import java.util.*;
  *
  * @author Zazalng
  * @version 1.0.0
- * @see <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a>
+ * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  * @since 1.0.0
  */
 public class DBF {
@@ -57,14 +58,25 @@ public class DBF {
     private List<DBFRow> records = new ArrayList<>();
 
     /**
+     * Constructs a new DBF reader instance with Enforce with forcing Decode with DBFEncoding and immediately attempts to load the file data.
+     * @param path The path to the DBF file. Must not be null.
+     * @param encoding The character encoding to use for text fields. If null, defaults based on header info.
+     * @throws IOException If an I/O error occurs while reading the file.
+     * @throws NullPointerException If the provided path is null.
+     */
+    public DBF(Path path, DBFEncoding encoding) throws IOException{
+        this.path = Objects.requireNonNull(path);
+        load(encoding);
+    }
+
+    /**
      * Constructs a new DBF reader instance and immediately attempts to load the file data.
      * @param path The path to the DBF file. Must not be null.
      * @throws IOException If an I/O error occurs while reading the file.
      * @throws NullPointerException If the provided path is null.
      */
     public DBF(Path path) throws IOException {
-        this.path = Objects.requireNonNull(path);
-        load();
+        this(path, null);
     }
 
     /**
@@ -73,17 +85,17 @@ public class DBF {
      * @throws IOException If an I/O error occurs while reading the file.
      */
     public void reload() throws IOException {
-        load();
+        load(header.encoding());
     }
 
     /**
      * Internal method to handle the actual file reading logic.
      * @throws IOException If the file cannot be read.
      */
-    private void load() throws IOException {
+    private void load(DBFEncoding encoding) throws IOException {
         try (SeekableByteChannel channel = Files.newByteChannel(path)) {
             // Assume DBFHeader and readRecords handles the file channel
-            header = new DBFHeader(channel);
+            header = new DBFHeader(channel, encoding);
             records = header.readRecords(channel);
         }
     }
@@ -106,7 +118,7 @@ public class DBF {
 
     /**
      * Gets the list of all data records read from the DBF file.
-     * This is a snapshot taken during the last {@link #load()} or {@link #reload()} call.
+     * This is a snapshot taken during the last {@link #load(DBFEncoding)} or {@link #reload()} call.
      * @return An unmodifiable {@code List} of {@link DBFRow} objects.
      */
     public List<DBFRow> getRecords() {

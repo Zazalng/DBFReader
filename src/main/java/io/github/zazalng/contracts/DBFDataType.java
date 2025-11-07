@@ -24,6 +24,7 @@ package io.github.zazalng.contracts;
  *
  * @author Zazalng
  * @since 1.0.0
+ * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  */
 public enum DBFDataType {
     // Standard dBase III+ Types

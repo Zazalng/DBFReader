@@ -27,9 +27,9 @@ import java.time.LocalDateTime;
  * <p>These methods handle conversions from raw byte arrays or padded strings into
  * appropriate Java types such as {@link LocalDate}, {@link BigDecimal}, and {@link LocalDateTime}.</p>
  *
- * @author Zazal Ng
+ * @author Zazalng
  * @since 1.0.0
- * @see <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a>
+ * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  */
 public final class DBFUtils {
     private DBFUtils() {}

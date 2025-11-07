@@ -6,7 +6,7 @@
 
     <groupId>io.github.zazalng</groupId>
     <artifactId>DBFReader</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 
     <name>DBFReader</name>
     <description>Library for Reading DBF file as snapshot</description>

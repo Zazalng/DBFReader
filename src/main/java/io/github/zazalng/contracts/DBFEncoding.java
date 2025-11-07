@@ -30,7 +30,7 @@ import java.util.Map;
  *
  * @author Zazalng
  * @since 1.0.0
- * @see <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a>
+ * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  */
 public enum DBFEncoding {
     // --- DOS / OEM encodings ---

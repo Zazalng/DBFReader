@@ -20,7 +20,6 @@ import io.github.zazalng.contracts.DBFEncoding;
 import io.github.zazalng.contracts.DBFVersion;
 
 import java.io.IOException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
@@ -37,7 +36,7 @@ import java.util.List;
  *
  * @author Zazalng
  * @since 1.0.0
- * @see <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a>
+ * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  */
 public final class DBFHeader {
     private final DBFVersion version;
@@ -52,9 +51,10 @@ public final class DBFHeader {
      * The channel's position is moved to the start of the data records upon successful construction.
      *
      * @param ch The {@code SeekableByteChannel} positioned at the start of the DBF file.
+     * @param encoding The {@link DBFEncoding} to use for text fields. If {@code null}, the encoding determined by the LDID byte is used.
      * @throws IOException If an I/O error occurs while reading the channel.
      */
-    public DBFHeader(SeekableByteChannel ch) throws IOException {
+    public DBFHeader(SeekableByteChannel ch, DBFEncoding encoding) throws IOException {
         ByteBuffer headerBuf = ByteBuffer.allocate(32);
         ch.read(headerBuf);
         headerBuf.flip();
@@ -69,14 +69,13 @@ public final class DBFHeader {
         recordLength = headerBuf.getShort();
 
         // Skip reserved 17 bytes to reach LDID
-        headerBuf.position(29);
-        int ldid = Byte.toUnsignedInt(headerBuf.get());
-        encoding = DBFEncoding.fromCode(ldid);
-
-        System.out.printf(
-                "Version=%s, Date=%02X-%02X-%02X, Records=%d, Header=%d, Record=%d, Encoding=%s%n",
-                version.getDescription(), year, month, day, recordCount, headerLength, recordLength, encoding
-        );
+        if(encoding == null) {
+            headerBuf.position(29);
+            int ldid = Byte.toUnsignedInt(headerBuf.get());
+            this.encoding = DBFEncoding.fromCode(ldid);
+        } else{
+            this.encoding = encoding;
+        }
 
         // Read fields
         while (true) {
@@ -88,7 +87,7 @@ public final class DBFHeader {
             byte firstByte = fieldBuf.get(0);
             if (firstByte == 0x0D) break; // end of field descriptors
 
-            DBFField field = DBFField.read(fieldBuf, encoding.toCharset());
+            DBFField field = DBFField.read(fieldBuf, this.encoding.toCharset());
             fields.add(field);
         }
 
@@ -150,12 +149,7 @@ public final class DBFHeader {
             recordBuf.flip();
             if (recordBuf.get(0) == 0x2A) continue; // deleted record
 
-            try {
-                list.add(new DBFRow(fields, recordBuf, encoding.toCharset()));
-            } catch (BufferUnderflowException e) {
-                System.err.println("[WARN] Record " + i + " shorter than expected (" + read + "/" + recordLength + ")");
-                break;
-            }
+            list.add(new DBFRow(fields, recordBuf, encoding.toCharset()));
         }
 
         return Collections.unmodifiableList(list);
