@@ -37,6 +37,16 @@ jobs:
           echo "Setting project version to $VERSION"
           mvn -DnewVersion=$VERSION versions:set -DgenerateBackupPoms=false
 
+      - name: Debug: test Sonatype auth and show .m2
+        run: |
+          echo "Testing Sonatype auth (s01 and oss)"
+          HTTP_CODE_S01=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.MAVEN_USERNAME }}:${{ secrets.MAVEN_PASSWORD }}" https://s01.oss.sonatype.org/service/local/)
+          echo "s01 response: $HTTP_CODE_S01"
+          HTTP_CODE_OSS=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.MAVEN_USERNAME }}:${{ secrets.MAVEN_PASSWORD }}" https://oss.sonatype.org/service/local/)
+          echo "oss response: $HTTP_CODE_OSS"
+          echo "Listing ~/.m2"
+          ls -la ~/.m2 || true
+
       - name: Build and deploy
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
