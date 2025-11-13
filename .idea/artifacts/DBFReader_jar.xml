@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="DBFReader:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/DBFReader</output-path>
+    <root id="archive" name="DBFReader.jar">
+      <element id="module-output" name="DBFReader" />
+    </root>
+  </artifact>
+</component>
