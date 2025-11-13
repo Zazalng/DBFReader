@@ -19,8 +19,8 @@ jobs:
           java-version: 8
           distribution: temurin
           server-id: central
-          server-username: 7NQIkn
-          server-password: Gi3VCTkpiPrbn7Nj5XtpwO24RiUgPYDge
+          server-username: ${{ secrets.MAVEN_USERNAME }}
+          server-password: ${{ secrets.MAVEN_PASSWORD }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
