@@ -29,43 +29,46 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     env:
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
       OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK and import GPG key
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '8'
+          # Import GPG key for signing
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Import GPG private key
+      - name: Configure GPG agent (allow loopback pinentry)
         run: |
           set -e
-          # Create GNUPGHOME to avoid interfering with runner
-          export GNUPGHOME="$RUNNER_WORKSPACE/.gnupg"
+          export GNUPGHOME="$HOME/.gnupg"
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
-          # Import the private key
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          # Allow loopback pinentry so Maven GPG plugin can use passphrase
           echo "allow-loopback-pinentry" >> "$GNUPGHOME/gpg-agent.conf"
-          # Restart gpg-agent (best-effort)
-          if gpgconf --list-dirs >/dev/null 2>&1; then
+          # Best-effort to restart gpg-agent so new config is picked up
+          if command -v gpgconf >/dev/null 2>&1; then
             gpgconf --kill all || true
           fi
 
-      - name: Prepare Maven settings.xml with Sonatype credentials
+      - name: Verify GPG key imported
+        run: |
+          echo "Listing secret keys to verify import"
+          gpg --list-secret-keys --keyid-format LONG || true
+
+      - name: Prepare Maven settings.xml with Authorization header for Central Publisher API
         shell: bash
         run: |
           set -e
-          # Compose Authorization header expected by the Central Portal Publisher API
-          AUTH="Bearer $(printf "%s:%s" "$OSSRH_USERNAME" "$OSSRH_PASSWORD" | base64 -w 0)"
           mkdir -p "$HOME/.m2"
+          AUTH="Bearer $(printf "%s:%s" "$OSSRH_USERNAME" "$OSSRH_PASSWORD" | base64 -w 0)"
           cat > "$HOME/.m2/settings.xml" <<EOF
           <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
@@ -94,4 +97,3 @@ jobs:
 
       - name: Print release hint
         run: echo "Release job finished (if Maven deploy succeeded, bundle was uploaded). Check Sonatype UI for deployment status."
-
