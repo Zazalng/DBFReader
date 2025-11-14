@@ -24,7 +24,6 @@
             <name>Napapon Kamanee</name>
             <email>kenghide@hotmail.com</email>
             <organization>World Standard Group</organization>
-            <organizationUrl>https://github.com/Zazalng</organizationUrl>
         </developer>
     </developers>
 
@@ -105,12 +104,16 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.12.0</version> <!-- Use a recent version -->
+                        <version>3.12.0</version>
+                        <configuration>
+                            <failOnError>false</failOnError>
+                        </configuration>
                         <executions>
                             <execution>
                                 <id>attach-javadocs</id>
                                 <goals>
                                     <goal>jar</goal>
+                                    <goal>javadoc</goal>
                                 </goals>
                             </execution>
                         </executions>

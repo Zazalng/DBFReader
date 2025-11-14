@@ -194,3 +194,65 @@ I can:
 - Add a `dry-run`/`verify` job that runs `mvn -P release -DskipTests=true -DperformRelease=false` or similar for a non-pushing build.
 
 Tell me which of these (if any) you want me to implement next. If you're ready to try the git workflow now, create the repository secrets, tag the repo (as shown above) and push the tag — then paste the Actions run URL or the run logs here and I will help triage any failures.
+
+# Release & CI Guide
+
+This project includes a GitHub Actions workflow at `.github/workflows/maven-publish.yml` that builds and runs tests on every push and can deploy a release bundle to Sonatype (Maven Central) when you push a tag that starts with `v` (for example `v1.1.2`).
+
+Overview
+- `push` on any branch: runs the `build` job which performs `mvn -B -V clean verify` (build + tests).
+- `push` tag `v*`: also runs the `release` job which will deploy to Sonatype OSSRH using the `release` Maven profile.
+
+Tagging vs Changing `pom.xml` version
+- The workflow triggers on Git tags only. You do not strictly need to commit a `pom.xml` version bump to trigger the workflow. However Maven Central prefers released artifacts to have the version in `pom.xml` match the release version.
+- Recommended flow (safe and conventional):
+  1. Update `pom.xml` version to the release version (for example `1.1.2`).
+  2. Commit the change to `main` (or your release branch).
+  3. Create an annotated tag that matches the version: `git tag -a v1.1.2 -m "Release v1.1.2"`.
+  4. Push both commit and tag: `git push && git push origin v1.1.2`.
+
+- Alternative quick flow: create and push a tag `vX.Y.Z` without changing `pom.xml`. The CI job will still run and attempt to deploy whatever version is in the `pom.xml` (so the deployed artifact will use whatever version is present in `pom.xml`). This is allowed but may be confusing because tag name and published artifact version may diverge.
+
+Required GitHub Secrets
+The `release` job expects the following repository secrets (Repository > Settings > Secrets and variables > Actions):
+- `OSSRH_USERNAME` — your Sonatype (central.sonatype.com) account username (or a user token username).
+- `OSSRH_PASSWORD` — your Sonatype account password (or the user token password / API token).
+- `GPG_PRIVATE_KEY` — your ASCII-armored GPG private key (including the -----BEGIN PGP PRIVATE KEY BLOCK----- header). Use `cat private.key | base64` only if you prefer to base64-encode; the current workflow expects the raw key string.
+- `GPG_PASSPHRASE` — passphrase for your GPG key (if any).
+
+Why these secrets
+- The workflow imports your GPG key so artifacts can be signed during `mvn deploy`.
+- The Sonatype credentials (username/password or user token) are injected into `~/.m2/settings.xml` as an HTTP Authorization header for the Central Portal Publisher API.
+
+Common CI failures and how to fix them
+- Missing `settings-security.xml` or encrypted passphrase errors
+  - This happens when a Maven plugin tries to decrypt an encrypted passphrase stored in `settings.xml` using a local `settings-security.xml` file that does not exist on the runner. To avoid this, do not rely on encrypted values in `settings.xml` in CI; instead pass plain secrets via the `GPG_PASSPHRASE` env and `MAVEN_GPG_PASSPHRASE`.
+
+- gpg: signing failed: Bad passphrase
+  - Ensure `GPG_PRIVATE_KEY` is the matching private key for the key id you use to sign, and `GPG_PASSPHRASE` is correct. You can try reproducing locally by importing the key and running `mvn -P release -DskipTests=false clean deploy`.
+
+- 401 Unauthorized when uploading bundle (Invalid request)
+  - The Central Portal Publisher API expects an Authorization header with a `Bearer <base64(username:password)>` value.
+  - Confirm you provided the correct Sonatype credentials or a user token. You can generate a user token on central.sonatype.com > Account > Generate User Token and use base64 of `tokenusername:tokenpassword`.
+  - In the job we create a header value like `Bearer <base64>` and set it in `~/.m2/settings.xml` for server id `central`. The `central-publishing-maven-plugin` will use that.
+
+Manual curl test (optional)
+- You can test your token with the Portal Publisher API directly from your machine (replace placeholders):
+
+  curl --request POST \
+    --header "Authorization: Bearer $(printf '%s:%s' "$OSSRH_USERNAME" "$OSSRH_PASSWORD" | base64 -w 0)" \
+    --form bundle=@central-bundle.zip \
+    https://central.sonatype.com/api/v1/publisher/upload
+
+What we added in CI
+- Build-and-test step on all pushes.
+- Release job on tag push that:
+  - Imports GPG key
+  - Writes `~/.m2/settings.xml` with HTTP Authorization header
+  - Runs `mvn -P release deploy --settings "$HOME/.m2/settings.xml"`
+
+Next steps and improvements
+- Support for base64-encoded `GPG_PRIVATE_KEY` if you prefer storing it encoded.
+- Support creating the release tag automatically from the `pom.xml` version using a small job that reads `pom.xml` and tags accordingly.
+- Add a `dry-run` release profile to build the central bundle locally, so you can verify it before uploading.
+
