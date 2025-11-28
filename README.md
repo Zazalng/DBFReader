@@ -33,7 +33,7 @@ Add this to your **Maven** project:
 <dependency>
     <groupId>io.github.zazalng</groupId>
     <artifactId>DBFReader</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>2.0.0-rc1</version>
 </dependency>
 ```
 
