@@ -23,10 +23,9 @@ import io.github.zazalng.entity.DBFHeader;
 import io.github.zazalng.entity.DBFRow;
 
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Path;
-import java.nio.file.Files;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Minimal DBF reader focused on reading and accessing DBF data.
@@ -52,21 +51,19 @@ import java.util.*;
  * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  * @since 1.0.0
  */
-public class DBF {
-    private final Path path;
-    private DBFHeader header;
-    private List<DBFRow> records = new ArrayList<>();
+public class DBF implements AutoCloseable {
+    private final DBFSession session;
 
     /**
-     * Constructs a new DBF reader instance with Enforce with forcing Decode with DBFEncoding and immediately attempts to load the file data.
+     * Constructs a new DBF reader instance by enforcing the specified encoding and immediately attempts to load the file data.
      * @param path The path to the DBF file. Must not be null.
      * @param encoding The character encoding to use for text fields. If null, defaults based on header info.
      * @throws IOException If an I/O error occurs while reading the file.
      * @throws NullPointerException If the provided path is null.
      */
     public DBF(Path path, DBFEncoding encoding) throws IOException{
-        this.path = Objects.requireNonNull(path);
-        load(encoding);
+        Objects.requireNonNull(path, "path");
+        this.session = DBFSession.open(path, encoding);
     }
 
     /**
@@ -85,19 +82,7 @@ public class DBF {
      * @throws IOException If an I/O error occurs while reading the file.
      */
     public void reload() throws IOException {
-        load(header.encoding());
-    }
-
-    /**
-     * Internal method to handle the actual file reading logic.
-     * @throws IOException If the file cannot be read.
-     */
-    private void load(DBFEncoding encoding) throws IOException {
-        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
-            // Assume DBFHeader and readRecords handles the file channel
-            header = new DBFHeader(channel, encoding);
-            records = header.readRecords(channel);
-        }
+        session.reload();
     }
 
     /**
@@ -105,7 +90,7 @@ public class DBF {
      * @return The {@link DBFHeader} object.
      */
     public DBFHeader getHeader() {
-        return header;
+        return session.header();
     }
 
     /**
@@ -113,16 +98,16 @@ public class DBF {
      * @return An unmodifiable {@code List} of {@link DBFField} objects.
      */
     public List<DBFField> getFields() {
-        return header.fields();
+        return session.fields();
     }
 
     /**
      * Gets the list of all data records read from the DBF file.
-     * This is a snapshot taken during the last {@link #load(DBFEncoding)} or {@link #reload()} call.
+     * This is a snapshot taken during the last initialization or {@link #reload()} call.
      * @return An unmodifiable {@code List} of {@link DBFRow} objects.
      */
     public List<DBFRow> getRecords() {
-        return records;
+        return session.records();
     }
 
     /**
@@ -130,6 +115,25 @@ public class DBF {
      * @return The {@link DBFVersion} of the file.
      */
     public DBFVersion getVersion() {
-        return header.version();
+        return session.version();
+    }
+
+    /**
+     * Provides access to the underlying session for advanced use-cases.
+     *
+     * @return The live {@link DBFSession} instance backing this facade.
+     */
+    public DBFSession getSession() {
+        return session;
+    }
+
+    /**
+     * Closes the underlying session, releasing any open file handles and locks.
+     *
+     * @throws IOException if closing the session fails.
+     */
+    @Override
+    public void close() throws IOException {
+        session.close();
     }
 }

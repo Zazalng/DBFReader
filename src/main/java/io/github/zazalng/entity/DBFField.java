@@ -20,7 +20,11 @@ import io.github.zazalng.utility.DBFUtils;
 import io.github.zazalng.contracts.DBFDataType;
 
 import java.nio.ByteBuffer;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Represents a single field (column) descriptor from the DBF file header.
@@ -46,6 +50,182 @@ public final class DBFField{
         this.decimalCount = decimalCount;
     }
 
+    /**
+     * Encodes a Java value into the raw byte representation expected for this field according to the
+     * DBF specification. The output length always matches {@link #getLength()}.
+     *
+     * @param value   The value to encode.
+     * @param charset Charset used for textual values. When {@code null}, {@link StandardCharsets#US_ASCII} is used.
+     * @return Byte array representing the encoded value, padded or truncated as required.
+     * @throws IllegalArgumentException If the value type is incompatible with the DBF field type.
+     */
+    public byte[] encode(Object value, Charset charset) {
+        Charset effectiveCharset = charset != null ? charset : StandardCharsets.US_ASCII;
+        byte[] out = new byte[length];
+
+        if (value == null) {
+            return out;
+        }
+
+        switch (type) {
+            case CHARACTER:
+            case VARCHAR:
+                writeString(value, effectiveCharset, out);
+                break;
+            case DATE:
+                writeDate(value, out);
+                break;
+            case NUMERIC:
+            case FLOAT:
+                writeNumeric(value, out);
+                break;
+            case DOUBLE:
+            case CURRENCY:
+                writeBinaryDouble(value, out);
+                break;
+            case INTEGER:
+                writeBinaryInteger(value, out);
+                break;
+            case LOGICAL:
+                writeLogical(value, out);
+                break;
+            case DATETIME:
+            case TIMESTAMP:
+                writeDateTime(value, out);
+                break;
+            default:
+                throw new IllegalArgumentException("Encoding not supported for field type: " + type);
+        }
+
+        return out;
+    }
+
+    private void writeString(Object value, Charset charset, byte[] out) {
+        String text = value.toString();
+        byte[] encoded = text.getBytes(charset);
+        int copyLength = Math.min(encoded.length, out.length);
+        System.arraycopy(encoded, 0, out, 0, copyLength);
+        if (copyLength < out.length) {
+            for (int i = copyLength; i < out.length; i++) {
+                out[i] = 0x20;
+            }
+        }
+    }
+
+    private void writeDate(Object value, byte[] out) {
+        LocalDate date;
+        if (value instanceof LocalDate) {
+            date = (LocalDate) value;
+        } else if (value instanceof java.util.Date) {
+            date = new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate();
+        } else if (value instanceof CharSequence) {
+            String text = value.toString();
+            if (text.matches("\\d{8}")) {
+                writeString(text, StandardCharsets.US_ASCII, out);
+                return;
+            }
+            throw new IllegalArgumentException("Unsupported date text: " + text);
+        } else {
+            throw new IllegalArgumentException("Unsupported date value: " + value.getClass());
+        }
+
+        String formatted = String.format("%04d%02d%02d", date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+        writeString(formatted, StandardCharsets.US_ASCII, out);
+    }
+
+    private void writeNumeric(Object value, byte[] out) {
+        BigDecimal decimal;
+        if (value instanceof BigDecimal) {
+            decimal = (BigDecimal) value;
+        } else if (value instanceof Number) {
+            decimal = new BigDecimal(value.toString());
+        } else if (value instanceof CharSequence) {
+            decimal = new BigDecimal(value.toString().trim());
+        } else {
+            throw new IllegalArgumentException("Unsupported numeric value: " + value.getClass());
+        }
+
+        String formatted;
+        if (decimalCount > 0) {
+            formatted = decimal.setScale(decimalCount, BigDecimal.ROUND_HALF_UP).toPlainString();
+        } else {
+            formatted = decimal.setScale(0, BigDecimal.ROUND_HALF_UP).toPlainString();
+        }
+
+        if (formatted.length() > length) {
+            formatted = formatted.substring(0, length);
+        }
+
+        byte[] bytes = formatted.getBytes(StandardCharsets.US_ASCII);
+        int start = out.length - bytes.length;
+        if (start < 0) {
+            start = 0;
+        }
+        System.arraycopy(bytes, 0, out, start, Math.min(bytes.length, out.length));
+        for (int i = 0; i < start; i++) {
+            out[i] = 0x20;
+        }
+    }
+
+    private void writeBinaryDouble(Object value, byte[] out) {
+        if (!(value instanceof Number)) {
+            throw new IllegalArgumentException("Expected numeric value for DOUBLE/CURRENCY but got " + value.getClass());
+        }
+        double dbl = ((Number) value).doubleValue();
+        byte[] buffer = new byte[8];
+        ByteBuffer.wrap(buffer).order(java.nio.ByteOrder.LITTLE_ENDIAN).putDouble(dbl);
+        System.arraycopy(buffer, 0, out, 0, Math.min(buffer.length, out.length));
+    }
+
+    private void writeBinaryInteger(Object value, byte[] out) {
+        if (!(value instanceof Number)) {
+            throw new IllegalArgumentException("Expected numeric value for INTEGER but got " + value.getClass());
+        }
+        int intVal = ((Number) value).intValue();
+        byte[] buffer = new byte[4];
+        ByteBuffer.wrap(buffer).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(intVal);
+        System.arraycopy(buffer, 0, out, 0, Math.min(buffer.length, out.length));
+    }
+
+    private void writeLogical(Object value, byte[] out) {
+        char c;
+        if (value instanceof Boolean) {
+            c = (Boolean) value ? 'T' : 'F';
+        } else if (value instanceof CharSequence) {
+            String text = value.toString().trim().toUpperCase();
+            if (text.isEmpty()) {
+                c = '?';
+            } else {
+                c = text.charAt(0);
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported logical value: " + value.getClass());
+        }
+        out[0] = (byte) c;
+        for (int i = 1; i < out.length; i++) {
+            out[i] = 0x20;
+        }
+    }
+
+    private void writeDateTime(Object value, byte[] out) {
+        LocalDateTime dateTime;
+        if (value instanceof LocalDateTime) {
+            dateTime = (LocalDateTime) value;
+        } else if (value instanceof java.util.Date) {
+            dateTime = LocalDateTime.ofInstant(((java.util.Date) value).toInstant(), java.time.ZoneOffset.UTC);
+        } else {
+            throw new IllegalArgumentException("Unsupported datetime value: " + value.getClass());
+        }
+
+        // Convert to Julian day and milliseconds since midnight
+        long epochDay = dateTime.toLocalDate().toEpochDay();
+        long julianDay = epochDay + 2440588L; // 2440588 is Julian day for Unix epoch
+        int millis = dateTime.toLocalTime().toSecondOfDay() * 1000;
+
+        ByteBuffer buf = ByteBuffer.wrap(out).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buf.putInt((int) julianDay);
+        buf.putInt(millis);
+    }
     /**
      * Reads a single 32-byte field descriptor from the {@code ByteBuffer}.
      * The buffer's position is advanced by 32 bytes to point to the next descriptor or the end-of-fields marker.
