@@ -40,7 +40,7 @@ Add this to your **Maven** project:
 Or using **Gradle**:
 
 ```groovy
-implementation 'io.github.zazalng:DBFReader:2.0.0-SNAPSHOT'
+implementation 'io.github.zazalng:DBFReader:2.0.0-rc1'
 ```
 
 ---
