@@ -1,162 +1,47 @@
-name: Maven Publish
+name: Publish Maven Package
 
 on:
+  workflow_dispatch:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch: {}
+      - "*"
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
 
 jobs:
-
-  # ----------------------------------------------------------
-  # BUILD & TEST
-  # ----------------------------------------------------------
-  build:
-    name: Build & Test
+  build_and_publish:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: Set up JDK 8
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '8'
+          java-version: 17
+          cache: maven
 
-      - name: Build with Maven
-        run: mvn -B -V clean verify
-
-
-  # ----------------------------------------------------------
-  # RELEASE TO SONATYPE CENTRAL
-  # ----------------------------------------------------------
-  release:
-    name: Release to Sonatype Central
-    runs-on: ubuntu-latest
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    env:
-      OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-      OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 8 (with GPG)
-        uses: actions/setup-java@v4
+      - name: Configure Maven servers (GitHub Packages)
+        uses: s4u/maven-settings-action@v4
         with:
-          distribution: temurin
-          java-version: '8'
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          servers: |
+            [
+              {
+                "id": "github",
+                "username": "${{ github.actor }}",
+                "password": "${{ secrets.GITHUB_TOKEN }}"
+              }
+            ]
 
-      - name: Configure GPG loopback
-        run: |
-          set -e
-          export GNUPGHOME="$HOME/.gnupghome"
-          mkdir -p "$GNUPGHOME"
-          chmod 700 "$GNUPGHOME"
-          echo "allow-loopback-pinentry" >> "$GNUPGHOME/gpg-agent.conf"
-          gpgconf --kill all || true
+      - name: Build and run tests
+        run: mvn -B clean verify -Pgithub
 
-      - name: Verify GPG key imported
-        run: gpg --list-secret-keys --keyid-format LONG || true
-
-      - name: Create Maven settings.xml
-        run: |
-          mkdir -p "$HOME/.m2"
-          cat > "$HOME/.m2/settings.xml" <<EOF
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-            <servers>
-              <server>
-                <id>central</id>
-                <username>${OSSRH_USERNAME}</username>
-                <password>${OSSRH_PASSWORD}</password>
-              </server>
-            </servers>
-          </settings>
-          EOF
-
-      - name: Deploy to Sonatype Central
-        env:
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn -B -P release clean deploy
-
-      - name: Print Sonatype hint
-        run: echo "Published to Sonatype Central. Check https://central.sonatype.com/publishing/deployments"
-
-
-  # ----------------------------------------------------------
-  # UPLOAD RELEASE ASSETS TO GITHUB RELEASE PAGE
-  # ----------------------------------------------------------
-  upload-release-assets:
-    name: Upload Release Artifacts to GitHub Release
-    runs-on: ubuntu-latest
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 8
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '8'
-
-      - name: Build release artifacts (recreates JARs)
-        run: mvn -B -P release package
-
-      - name: Upload assets to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            target/*-javadoc.jar
-            target/*-sources.jar
-            target/*.jar
-
-
-  # ----------------------------------------------------------
-  # PUBLISH JAVADOCS TO GITHUB PAGES
-  # ----------------------------------------------------------
-  publish-javadoc:
-    name: Publish Javadocs to GitHub Pages
-    runs-on: ubuntu-latest
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 8
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '8'
-
-      - name: Generate Javadocs
-        run: mvn -B javadoc:javadoc
-
-      - name: Prepare javadoc directories
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          mkdir -p public/"$VERSION"
-          cp -r target/site/apidocs/* public/"$VERSION"/
-          mkdir -p public/latest
-          cp -r target/site/apidocs/* public/latest/
-
-      - name: Deploy Javadocs to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
+      - name: Deploy to GitHub Packages
+        run: mvn -B deploy -Pgithub

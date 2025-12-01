@@ -6,11 +6,21 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.zazalng</groupId>
-    <artifactId>DBFReader</artifactId>
+    <artifactId>dbf-reader</artifactId>
     <version>2.0.0-rc1</version>
     <name>DBFReader</name>
     <description>Library for Reading DBF file as snapshot</description>
     <url>https://github.com/Zazalng/DBFReader</url>
+
+    <distributionManagement>
+        <relocation>
+            <groupId>io.github.zazalng</groupId>
+            <artifactId>dbfreader</artifactId>
+            <version>1.2.1</version>
+            <message>This artifact has been permanently relocated to the lowercase artifactId 'dbf-reader'.</message>
+        </relocation>
+    </distributionManagement>
+
 
     <licenses>
         <license>
@@ -90,7 +100,10 @@
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
-                        <goals><goal>jar</goal></goals>
+                        <goals>
+                            <goal>jar</goal>
+                            <goal>javadoc</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

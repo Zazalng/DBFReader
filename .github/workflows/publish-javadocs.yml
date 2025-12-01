@@ -1,0 +1,150 @@
+name: Publish Versioned Javadocs
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Publish Maven Package"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  generate_and_publish_javadocs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build (generate Javadocs)
+        run: mvn -B verify -Pgithub
+
+      - name: Locate Javadocs
+        id: jdoc
+        run: |
+          if [ -d "target/reports/apidocs" ]; then
+            echo "path=target/reports/apidocs" >> $GITHUB_OUTPUT
+          elif [ -d "target/site/apidocs" ]; then
+            echo "path=target/site/apidocs" >> $GITHUB_OUTPUT
+          else
+            echo "No Javadocs found"
+            exit 1
+          fi
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            echo "version=${TAG}" >> $GITHUB_OUTPUT
+          else
+            echo "version=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare publish directory
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir publish
+
+          if [[ "$VERSION" == "latest" ]]; then
+            mkdir -p publish/latest
+            cp -r "${{ steps.jdoc.outputs.path }}/." publish/latest
+          else
+            mkdir -p publish/$VERSION
+            cp -r "${{ steps.jdoc.outputs.path }}/." publish/$VERSION
+
+            # also update latest
+            mkdir -p publish/latest
+            cp -r "${{ steps.jdoc.outputs.path }}/." publish/latest
+          fi
+
+      - name: Rebuild docs-index.json (version list)
+        run: |
+          cd publish
+          echo "[" > docs-index.json
+          first=true
+          for d in */ ; do
+            v="${d%/}"
+            if [ "$v" != "." ]; then
+              if [ "$first" = true ]; then first=false; else echo "," >> docs-index.json; fi
+              echo "  \"${v}\"" >> docs-index.json
+            fi
+          done
+          echo "]" >> docs-index.json
+
+      - name: Install homepage UI
+        run: |
+          cat << 'EOF' > publish/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>DBFReader Documentation</title>
+            <style>
+              body { font-family: sans-serif; padding: 40px; }
+              h1 { margin-bottom: 10px; }
+              .box { margin-top: 20px; }
+              select { padding: 8px; font-size: 1rem; }
+            </style>
+          </head>
+          <body>
+            <h1>DBFReader Documentation</h1>
+            <p>Select a documentation version:</p>
+
+            <div class="box">
+              <select id="ver"></select>
+              <button onclick="go()">Go</button>
+            </div>
+
+            <script>
+              async function loadVersions() {
+                let r = await fetch('docs-index.json');
+                let list = await r.json();
+                list.sort();
+
+                let sel = document.getElementById('ver');
+                list.forEach(v => {
+                  let opt = document.createElement('option');
+                  opt.value = v;
+                  opt.textContent = v;
+                  sel.appendChild(opt);
+                });
+              }
+
+              function go() {
+                let v = document.getElementById('ver').value;
+                window.location.href = v + '/index.html';
+              }
+
+              loadVersions();
+            </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: publish
+
+  deploy-pages:
+    needs: generate_and_publish_javadocs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
