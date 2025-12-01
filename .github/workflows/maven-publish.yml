@@ -1,40 +1,35 @@
-name: Build & Publish DBFReader
+name: Publish Maven Package
 
 on:
-  workflow_dispatch:  # manual retry
+  workflow_dispatch:
   push:
     tags:
-      - "*"            # automatic publish on version tags
+      - "*"
 
 permissions:
   contents: write
   packages: write
-  pages: write
   id-token: write
 
 jobs:
-
   build_and_publish:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout current branch only
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # Setup Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: "17"
-          distribution: "temurin"
+          distribution: temurin
+          java-version: 17
           cache: maven
 
-      # Configure Maven settings (GitHub & Central)
       - name: Configure Maven Servers
-        uses: s4u/maven-settings-action@v4.0.0
+        uses: s4u/maven-settings-action@v4
         with:
           servers: |
             [
@@ -45,46 +40,8 @@ jobs:
               }
             ]
 
-      # Build, Test, Generate JARs
       - name: Build with Maven
         run: mvn -B clean verify -Pgithub
 
-      # Deploy to GitHub Packages
       - name: Deploy to GitHub Packages
         run: mvn -B deploy -Pgithub
-
-      # Generate readable Javadocs (HTML folder)
-      - name: Generate website Javadocs
-        run: mvn -B javadoc:javadoc
-
-      # Upload as artifact for later pages deploy
-      - name: Upload Javadocs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: javadocs
-          path: target/site/apidocs
-
-  deploy_javadocs:
-    needs: build_and_publish
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy-pages.outputs.page_url }}
-
-    steps:
-      - name: Download Javadocs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: javadocs
-          path: ./javadocs
-
-      # Upload static site to GitHub Pages
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./javadocs
-
-      # Publish to GitHub Pages
-      - name: Deploy GitHub Pages
-        id: deploy-pages
-        uses: actions/deploy-pages@v4
