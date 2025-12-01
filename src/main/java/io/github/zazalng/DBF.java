@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 /**
@@ -52,7 +53,7 @@ import java.util.*;
  * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  * @since 1.0.0
  */
-public class DBF {
+public final class DBF {
     private final Path path;
     private DBFHeader header;
     private List<DBFRow> records = new ArrayList<>();
@@ -93,10 +94,16 @@ public class DBF {
      * @throws IOException If the file cannot be read.
      */
     private void load(DBFEncoding encoding) throws IOException {
-        try (SeekableByteChannel channel = Files.newByteChannel(path)) {
+        Path tempFile = Files.createTempFile("dbfreader", ".dbf");
+        Files.copy(path, tempFile, StandardCopyOption.REPLACE_EXISTING);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(tempFile)) {
             // Assume DBFHeader and readRecords handles the file channel
             header = new DBFHeader(channel, encoding);
             records = header.readRecords(channel);
+        }
+        finally {
+            Files.delete(tempFile);
         }
     }
 
