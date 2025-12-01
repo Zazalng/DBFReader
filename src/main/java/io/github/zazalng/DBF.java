@@ -51,7 +51,7 @@ import java.util.Objects;
  * @see <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license</a>
  * @since 1.0.0
  */
-public class DBF implements AutoCloseable {
+public final class DBF implements AutoCloseable {
     private final DBFSession session;
 
     /**
