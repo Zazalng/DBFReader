@@ -32,14 +32,14 @@ Add this to your **Maven** project:
 <dependency>
     <groupId>io.github.zazalng</groupId>
     <artifactId>DBFReader</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
 Or using **Gradle**:
 
 ```groovy
-implementation 'io.github.zazalng:DBFReader:1.1.0'
+implementation 'io.github.zazalng:DBFReader:1.2.0'
 ```
 
 ---
