@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   workflow_run:
     workflows: ["Publish Maven Package"]
-    types: [completed]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -12,7 +13,7 @@ permissions:
   id-token: write
 
 jobs:
-  publish_javadocs:
+  generate_and_publish_javadocs:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,16 +28,33 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Generate Javadocs
+      - name: Generate Javadocs (run verify to ensure plugin executions)
         run: mvn -B verify -Pgithub
 
-      - name: Upload Pages Artifact
+      - name: Locate Javadocs (check common locations)
+        id: find-javadoc
+        run: |
+          echo "Checking expected javadoc paths..."
+          if [ -d "target/site/apidocs" ]; then
+            echo "path=target/site/apidocs" >> $GITHUB_OUTPUT
+            echo "Found target/site/apidocs"
+          elif [ -d "target/reports/apidocs" ]; then
+            echo "path=target/reports/apidocs" >> $GITHUB_OUTPUT
+            echo "Found target/reports/apidocs"
+          else
+            echo "No Javadoc directory found. Listing target tree for debug:"
+            ls -al target || true
+            echo "##[error]Javadoc not generated. Checked: target/site/apidocs and target/reports/apidocs"
+            exit 1
+          fi
+
+      - name: Upload Pages Artifact (Javadocs)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: target/site/apidocs
+          path: ${{ steps.find-javadoc.outputs.path }}
 
   deploy_pages:
-    needs: publish_javadocs
+    needs: generate_and_publish_javadocs
     runs-on: ubuntu-latest
     permissions:
       pages: write

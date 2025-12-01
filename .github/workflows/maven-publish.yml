@@ -28,7 +28,7 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Configure Maven Servers
+      - name: Configure Maven servers (GitHub Packages)
         uses: s4u/maven-settings-action@v4
         with:
           servers: |
@@ -40,7 +40,7 @@ jobs:
               }
             ]
 
-      - name: Build with Maven
+      - name: Build and run tests
         run: mvn -B clean verify -Pgithub
 
       - name: Deploy to GitHub Packages
