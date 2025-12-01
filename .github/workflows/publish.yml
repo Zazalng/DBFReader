@@ -25,7 +25,7 @@ jobs:
 
       # Configure Maven settings.xml with GitHub Packages credentials
       - name: Configure Maven for GitHub Packages
-        uses: s4u/maven-settings-action@v4
+        uses: s4u/maven-settings-action@v4.0.0
         with:
           servers: |
             [
