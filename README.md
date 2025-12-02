@@ -1,6 +1,6 @@
 # 🗃️ DBFReader — Lightweight Java `.dbf` File Reader
 
-![Maven Central](https://img.shields.io/maven-central/v/io.github.zazalng/DBFReader.svg?label=Maven%20Central)
+![Maven Central](https://img.shields.io/maven-central/v/io.github.zazalng/dbf-reader.svg?label=Maven%20Central)
 ![Java](https://img.shields.io/badge/JDK-8%2B-green)
 ![License](https://img.shields.io/github/license/Zazalng/DBFReader)
 [![Javadoc](https://img.shields.io/badge/javadoc-latest-blue.svg)](https://zazalng.github.io/DBFReader/latest/)
