@@ -31,15 +31,15 @@ Add this to your **Maven** project:
 ```xml
 <dependency>
     <groupId>io.github.zazalng</groupId>
-    <artifactId>DBFReader</artifactId>
-    <version>1.2.0</version>
+    <artifactId>dbf-reader</artifactId>
+    <version>1.2.3</version>
 </dependency>
 ```
 
 Or using **Gradle**:
 
 ```groovy
-implementation 'io.github.zazalng:DBFReader:1.2.0'
+implementation 'io.github.zazalng:def-reader:1.2.3'
 ```
 
 ---
